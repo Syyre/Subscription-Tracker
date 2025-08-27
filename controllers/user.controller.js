@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/user.model.js";
 
 export const getUsers = async (req, res, next) => {
@@ -28,6 +29,52 @@ export const getUser = async (req, res, next) => {
       data: user,
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const allowedUpdates = ["name", "email"];
+    const updates = Object.keys(req.body);
+    const isValidOperation = updates.every((update) =>
+      allowedUpdates.includes(update)
+    );
+
+    if (!isValidOperation) {
+      const error = new Error("Invalid updates");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    //check user
+    const userCheck = await User.findById(req.params.id);
+    if (userCheck.id != req.user.id) {
+      const error = new Error("You can update only your account");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+      session,
+      strict: "throw",
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).send({
+      success: true,
+      message: "User updated",
+      data: user,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     next(error);
   }
 };
