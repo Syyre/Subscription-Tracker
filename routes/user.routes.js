@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  deleteUser,
   getUser,
   getUsers,
   updateUser,
@@ -17,8 +18,7 @@ userRouter.post("/", signUp);
 
 userRouter.put("/:id", authorize, updateUser);
 
-userRouter.delete("/:id", authorize, (req, res) => {
-  res.send({ title: `Delete user with ID ${req.params.id}` });
-});
+//Should only be able to delete your own account
+userRouter.delete("/:id", authorize, deleteUser);
 
 export default userRouter;

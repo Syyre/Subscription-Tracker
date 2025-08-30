@@ -78,3 +78,31 @@ export const updateUser = async (req, res, next) => {
     next(error);
   }
 };
+
+export const deleteUser = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    //check user
+    const userCheck = await User.findById(req.params.id);
+    if (userCheck.id != req.user.id) {
+      const error = new Error("You can delete only your account");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await User.findByIdAndDelete(req.params.id, { session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).send({
+      success: true,
+      message: "User deleted",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+};
