@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Subscription from "../models/subscription.model.js";
 import User from "../models/user.model.js";
 
@@ -54,6 +55,56 @@ export const getSubscriptionById = async (req, res, next) => {
     }
     res.status(200).json({ success: true, data: subscription });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const updateSubscription = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const allowedUpdates = [
+      "name",
+      "price",
+      "frequency",
+      "paymentMethod",
+      "status",
+    ];
+    const updates = Object.keys(req.body);
+    const isValidOperation = updates.every((update) =>
+      allowedUpdates.includes(update)
+    );
+
+    if (!isValidOperation) {
+      const error = new Error("Invalid updates");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const subscription = await Subscription.findById(req.params.id);
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Subscription not found" });
+    }
+
+    if (subscription.user.toString() !== req.user.id) {
+      const error = new Error(
+        "You are not authorized to update this subscription"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+    // Update subscription details
+    Object.assign(subscription, req.body);
+    await subscription.save({ session });
+
+    await session.commitTransaction();
+    res.status(200).json({ success: true, data: subscription });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     next(error);
   }
 };
