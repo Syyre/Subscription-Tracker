@@ -108,3 +108,65 @@ export const updateSubscription = async (req, res, next) => {
     next(error);
   }
 };
+
+export const deleteSubscription = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const subscription = await Subscription.findById(req.params.id);
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Subscription not found" });
+    }
+
+    if (subscription.user.toString() !== req.user.id) {
+      const error = new Error(
+        "You are not authorized to delete this subscription"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await Subscription.findByIdAndDelete(req.params.id, { session });
+    await session.commitTransaction();
+    res.status(200).json({ success: true, message: "Subscription deleted" });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+};
+
+//get subscription and change status to cancelled
+export const cancelSubscription = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const subscription = await Subscription.findById(req.params.id);
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Subscription not found" });
+    }
+
+    if (subscription.user.toString() !== req.user.id) {
+      const error = new Error(
+        "You are not authorized to cancel this subscription"
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+
+    subscription.status = "cancelled";
+    await subscription.save({ session });
+
+    await session.commitTransaction();
+    res.status(200).json({ success: true, data: subscription });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+};
